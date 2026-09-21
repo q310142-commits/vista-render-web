@@ -1,4 +1,4 @@
-const MAX_INPUT_CHARS = 6_000_000;
+const MAX_INPUT_CHARS = 5_500_000;
 
 const STYLES = {
   modern: "modern minimalist interior, restrained neutral palette, refined architectural detailing",
@@ -14,6 +14,7 @@ function buildPrompt(body) {
   const mode = body.mode === "style" ? "STYLE TRANSFER" : "PURE PHOTOREALISM";
   const style = STYLES[body.style] || STYLES.modern;
   const extra = String(body.userPrompt || "").slice(0, 1200);
+
   return `[ROLE: SENIOR ARCHITECTURAL PHOTOGRAPHY + PBR FINISHING ENGINE]
 
 MODE: ${mode}
@@ -42,10 +43,12 @@ ANTI-HALLUCINATION:
 - No AI artifacts, warped cabinetry, melted furniture, duplicated objects or impossible reflections.
 
 LIGHTING DIRECTION:
-${String(body.lighting || "Natural realistic daylight").slice(0,300)}
+${String(body.lighting || "Natural realistic daylight").slice(0, 300)}
 
-${body.mode === "style" ? `STYLE MATERIAL DIRECTION:
-Apply ${style} only through surface finish, color/material character and lighting atmosphere. Do not add style-signature objects.` : "MATERIAL DIRECTION: Preserve the existing design language and material identity; improve realism only."}
+${body.mode === "style"
+  ? `STYLE MATERIAL DIRECTION:
+Apply ${style} only through surface finish, color/material character and lighting atmosphere. Do not add style-signature objects.`
+  : "MATERIAL DIRECTION: Preserve the existing design language and material identity; improve realism only."}
 
 USER FINE-TUNE:
 ${extra || "Increase realism, keep materials refined and camera exposure balanced."}
@@ -54,70 +57,159 @@ OUTPUT:
 Return ONE clean architectural render only. Structural fidelity first, realism second, stylistic polish third.`;
 }
 
-function findImage(result) {
-  const steps = Array.isArray(result?.steps) ? result.steps : [];
-  for (const step of steps) {
-    const content = Array.isArray(step?.content) ? step.content : [];
-    for (const part of content) {
-      if (part?.type === "image" && part?.data) return { data: part.data, mime: part.mime_type || "image/jpeg" };
+function findGeneratedImage(result) {
+  const parts = result?.candidates?.[0]?.content?.parts || [];
+  for (const part of parts) {
+    const img = part.inlineData || part.inline_data;
+    if (img?.data) {
+      return {
+        data: img.data,
+        mime: img.mimeType || img.mime_type || "image/png"
+      };
     }
   }
-  if (result?.output_image?.data) return { data: result.output_image.data, mime: result.output_image.mime_type || "image/jpeg" };
   return null;
+}
+
+function friendlyGeminiError(status, raw) {
+  let msg = "";
+  try {
+    const parsed = JSON.parse(raw);
+    msg = parsed?.error?.message || "";
+  } catch {}
+
+  if (status === 400) return "Gemini 請求格式或圖片內容不符合要求。" + (msg ? " " + msg : "");
+  if (status === 401 || status === 403) return "Gemini API Key 無效、權限不足，或此金鑰尚未開放圖片模型。" + (msg ? " " + msg : "");
+  if (status === 429) return "Gemini API 目前已達使用額度或速率限制，請稍後再試。" + (msg ? " " + msg : "");
+  if (status >= 500) return "Gemini 伺服器暫時無法處理，請稍後再試。";
+  return msg || "Gemini 目前無法完成渲染。";
 }
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(503).json({ error: "伺服器尚未設定 GEMINI_API_KEY。" });
+  if (!key) {
+    return res.status(503).json({ error: "伺服器尚未設定 GEMINI_API_KEY。" });
+  }
 
   try {
     const body = req.body || {};
     const image = String(body.image || "");
+
     if (!image.startsWith("data:image/") || image.length > MAX_INPUT_CHARS) {
-      return res.status(400).json({ error: "圖片格式錯誤或檔案過大，請換較小的 JPG/PNG。" });
+      return res.status(400).json({
+        error: "圖片格式錯誤或檔案過大，請換較小的 JPG / PNG / WEBP。"
+      });
     }
+
     const match = image.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
-    if (!match) return res.status(400).json({ error: "不支援的圖片格式。" });
+    if (!match) {
+      return res.status(400).json({ error: "不支援的圖片格式。" });
+    }
 
     const quality = body.quality === "4K" ? "4K" : "2K";
-    const model = quality === "4K" ? "gemini-3-pro-image" : "gemini-3.1-flash-image";
+    const model = quality === "4K"
+      ? "gemini-3-pro-image"
+      : "gemini-3.1-flash-image";
+
     const prompt = buildPrompt(body);
+
     const payload = {
-      model,
-      input: [
-        { type: "image", mime_type: match[1], data: match[2] },
-        { type: "text", text: prompt }
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            {
+              inline_data: {
+                mime_type: match[1],
+                data: match[2]
+              }
+            }
+          ]
+        }
       ],
-      response_format: {
-        type: "image",
-        mime_type: "image/jpeg",
-        image_size: quality
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+        responseFormat: {
+          image: {
+            imageSize: quality
+          }
+        }
       }
     };
 
-    let lastError = "";
+    let lastStatus = 500;
+    let lastRaw = "";
+
     for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      const url =
+        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`;
+
+      const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": key
+        },
         body: JSON.stringify(payload)
       });
-      const text = await response.text();
+
+      lastStatus = response.status;
+      lastRaw = await response.text();
+
       if (response.ok) {
-        const result = JSON.parse(text);
-        const output = findImage(result);
-        if (!output) return res.status(502).json({ error: "Gemini 已完成但沒有回傳圖片。" });
-        return res.status(200).json({ image: `data:${output.mime};base64,${output.data}`, model, quality });
+        let result;
+        try {
+          result = JSON.parse(lastRaw);
+        } catch {
+          return res.status(502).json({
+            error: "Gemini 回傳格式無法解析，請重新嘗試。"
+          });
+        }
+
+        const output = findGeneratedImage(result);
+
+        if (!output) {
+          const textPart = result?.candidates?.[0]?.content?.parts?.find(
+            p => p.text
+          )?.text;
+
+          return res.status(502).json({
+            error: "Gemini 已完成請求，但沒有回傳圖片。",
+            detail: textPart || ""
+          });
+        }
+
+        return res.status(200).json({
+          image: `data:${output.mime};base64,${output.data}`,
+          model,
+          quality
+        });
       }
-      lastError = text.slice(0, 1200);
-      if (![408, 429, 500, 502, 503, 504].includes(response.status)) break;
-      await new Promise(r => setTimeout(r, 1200 * Math.pow(2, attempt)));
+
+      if (![408, 429, 500, 502, 503, 504].includes(response.status)) {
+        break;
+      }
+
+      await new Promise(resolve =>
+        setTimeout(resolve, 1200 * Math.pow(2, attempt))
+      );
     }
-    return res.status(502).json({ error: "Gemini 目前無法完成渲染，請稍後再試。", detail: lastError });
+
+    return res.status(lastStatus >= 400 && lastStatus < 600 ? lastStatus : 502).json({
+      error: friendlyGeminiError(lastStatus, lastRaw),
+      upstreamStatus: lastStatus
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "伺服器渲染流程發生錯誤。" });
+    console.error("VISTA render error:", error);
+    return res.status(500).json({
+      error: "伺服器渲染流程發生錯誤，請稍後再試。"
+    });
   }
 };
