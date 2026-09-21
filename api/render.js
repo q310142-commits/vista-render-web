@@ -113,6 +113,7 @@ module.exports = async function handler(req, res) {
     }
 
     const quality = body.quality === "4K" ? "4K" : "2K";
+    const apiImageSize = quality === "4K" ? "IMAGE_SIZE_FOUR_K" : "IMAGE_SIZE_TWO_K";
     const model = quality === "4K"
       ? "gemini-3-pro-image"
       : "gemini-3.1-flash-image";
@@ -138,7 +139,7 @@ module.exports = async function handler(req, res) {
         responseModalities: ["TEXT", "IMAGE"],
         responseFormat: {
           image: {
-            imageSize: quality
+            imageSize: apiImageSize
           }
         }
       }
