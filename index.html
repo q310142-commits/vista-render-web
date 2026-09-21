@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VISTA AI Render</title>
+<style>
+:root{color-scheme:dark;--bg:#070707;--panel:#111214;--line:#27282b;--muted:#92959b;--amber:#f59e0b;--violet:#9b5cff;--good:#36d399;--bad:#fb7185}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#241708 0,transparent 28%),var(--bg);color:#f6f7f8;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}.app{min-height:100vh}.top{height:70px;border-bottom:1px solid #ffffff12;background:#080808e8;backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:20}
+.brand{display:flex;gap:12px;align-items:center}.logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#f59e0b,#fde047);display:grid;place-items:center;color:#15100a;font-weight:900}.brand h1{margin:0;font-size:18px;letter-spacing:-.03em}.brand small{color:var(--amber);letter-spacing:.18em;font-size:9px;font-weight:800}
+.badge{font-size:10px;color:#b6f6d8;background:#0f2f24;border:1px solid #1d654b;border-radius:999px;padding:7px 10px}
+.main{display:grid;grid-template-columns:390px 1fr;gap:20px;max-width:1800px;margin:0 auto;padding:20px}.panel{background:#101113d9;border:1px solid #ffffff12;border-radius:22px;padding:18px;box-shadow:0 24px 80px #0008}.controls{display:flex;flex-direction:column;gap:15px;max-height:calc(100vh - 110px);overflow:auto}.section{border:1px solid #ffffff0e;background:#0a0b0c;border-radius:18px;padding:14px}.label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#b6b9c0;font-weight:850;margin-bottom:10px}.hint{font-size:11px;line-height:1.55;color:#7f838a;margin-top:8px}.upload{border:1px dashed #5b4525;background:#171109;border-radius:15px;padding:18px;text-align:center;cursor:pointer;display:block}.upload:hover{border-color:var(--amber)}.upload input{display:none}.fileName{margin-top:8px;font-size:11px;color:#d6d7da;word-break:break-all}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.seg button,.chips button{background:#151619;border:1px solid #2c2e32;color:#a9adb4;padding:10px;border-radius:12px;cursor:pointer;font-size:11px;font-weight:800}.seg button.on,.chips button.on{border-color:var(--amber);background:#36240b;color:#ffd58b}.chips{display:flex;gap:7px;flex-wrap:wrap}.chips button{padding:8px 10px}.select,textarea{width:100%;background:#0b0c0e;border:1px solid #292b2f;border-radius:12px;color:#e7e8ea;padding:10px 11px;outline:none}textarea{height:74px;resize:vertical}.select:focus,textarea:focus{border-color:#7c5b20}
+.run{width:100%;border:0;border-radius:18px;padding:17px;background:linear-gradient(135deg,#f59e0b,#facc15);color:#17110a;font-weight:950;cursor:pointer;font-size:15px;box-shadow:0 14px 38px #f59e0b22}.run:disabled{opacity:.45;cursor:not-allowed}.workspace{min-height:calc(100vh - 110px);display:flex;flex-direction:column;gap:14px}.viewer{flex:1;min-height:620px;border-radius:28px;border:1px solid #ffffff12;background:#050506;display:grid;place-items:center;overflow:hidden;position:relative}.viewer img{max-width:100%;max-height:calc(100vh - 170px);object-fit:contain}.empty{text-align:center;color:#62656a}.empty strong{display:block;color:#92959b;font-size:18px;margin-bottom:8px}.status{position:absolute;left:18px;bottom:18px;background:#060606d9;border:1px solid #ffffff16;border-radius:999px;padding:9px 12px;font-size:10px;color:#d4d5d8;backdrop-filter:blur(10px)}.status b{color:var(--amber)}.tools{display:flex;justify-content:flex-end;gap:8px}.tool{border:1px solid #2d2f33;background:#131416;color:#ddd;padding:9px 13px;border-radius:12px;cursor:pointer;font-size:11px}.error{color:#fecdd3;background:#3a1017;border:1px solid #7f1d2d;padding:10px;border-radius:12px;font-size:11px;display:none}.progress{height:5px;background:#202126;border-radius:99px;overflow:hidden;display:none}.progress i{display:block;height:100%;width:42%;background:linear-gradient(90deg,#f59e0b,#fde047);animation:load 1.1s ease-in-out infinite alternate}@keyframes load{from{transform:translateX(-55%)}to{transform:translateX(170%)}}@media(max-width:920px){.main{grid-template-columns:1fr}.controls{max-height:none}.viewer{min-height:55vh}.top{padding:0 14px}.badge{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="brand"><div class="logo">V</div><div><h1>VISTA AI Render</h1><small>ARCHITECTURAL PHOTOREALISM</small></div></div><div class="badge">Gemini server-side protected</div></header>
+<main class="main">
+<aside class="panel controls">
+<div class="section">
+<div class="label">01 · SketchUp / D5 / Enscape 底圖</div>
+<label class="upload">點擊上傳渲染底圖<input id="file" type="file" accept="image/jpeg,image/png,image/webp"><div id="fileName" class="fileName">尚未選擇圖片</div></label>
+<div class="hint">上傳後會先在瀏覽器壓縮，減少 API 失敗。原始比例會保留。</div>
+</div>
+<div class="section">
+<div class="label">02 · 渲染模式</div>
+<div class="seg grid2"><button id="pure" class="on">攝影擬真</button><button id="style">材質風格</button></div>
+</div>
+<div class="section" id="stylesBox" style="display:none">
+<div class="label">03 · 風格</div>
+<div class="chips" id="styles"></div>
+</div>
+<div class="section">
+<div class="label">04 · 光線</div>
+<select id="lighting" class="select"><option value="Natural bright daylight with realistic indirect bounce light">晴天自然光</option><option value="Soft overcast daylight, gentle contrast, no harsh shadows">陰天柔光</option><option value="Warm golden hour sunlight with long soft shadows">黃昏夕陽</option><option value="Night interior with warm 3000K practical lights and controlled dark exterior">夜間室內光</option></select>
+</div>
+<div class="section">
+<div class="label">05 · 品質</div>
+<select id="quality" class="select"><option value="2K">穩定 2K（建議）</option><option value="4K">極致 4K（較慢 / 檔案較大）</option></select>
+<div class="hint">4K 會使用 Pro 模型。若公司網路或平台限制造成回傳過大，請改用 2K。</div>
+</div>
+<div class="section">
+<div class="label">06 · 額外微調</div>
+<textarea id="prompt" placeholder="例如：木皮紋理更細緻、降低過曝、玻璃反射自然、保留原始櫃體線條..."></textarea>
+</div>
+<div id="error" class="error"></div><div id="progress" class="progress"><i></i></div>
+<button id="run" class="run">啟動攝影級 AI 算圖</button>
+</aside>
+<section class="workspace">
+<div class="tools"><button id="download" class="tool" disabled>下載結果</button><button id="reset" class="tool">清除</button></div>
+<div class="viewer"><div id="empty" class="empty"><strong>VISTA RENDER READY</strong>上傳 SketchUp / D5 / Enscape 圖片開始</div><img id="preview" hidden><div class="status" id="status">Engine <b>READY</b></div></div>
+</section>
+</main>
+</div>
+<script>
+const styleData=[["modern","現代風"],["cream","奶油風"],["wabisabi","侘寂風"],["nordic","北歐風"],["japandi","Japandi"],["luxury","現代輕奢"],["zen","東方禪意"]];
+let mode="pure",selected="modern",sourceData="",resultData="";
+const $=id=>document.getElementById(id);
+styleData.forEach(([v,n])=>{const b=document.createElement("button");b.textContent=n;b.dataset.v=v;b.onclick=()=>{selected=v;document.querySelectorAll("#styles button").forEach(x=>x.classList.toggle("on",x===b))};$("styles").appendChild(b)});document.querySelector("#styles button").classList.add("on");
+$("pure").onclick=()=>setMode("pure");$("style").onclick=()=>setMode("style");
+function setMode(v){mode=v;$("pure").classList.toggle("on",v==="pure");$("style").classList.toggle("on",v==="style");$("stylesBox").style.display=v==="style"?"block":"none"}
+$("file").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("fileName").textContent=f.name;sourceData=await compressImage(f);resultData="";$("preview").src=sourceData;$("preview").hidden=false;$("empty").style.display="none";$("download").disabled=true;$("status").innerHTML="Source <b>LOADED</b>"};
+async function compressImage(file){const url=URL.createObjectURL(file);const img=await new Promise((res,rej)=>{const i=new Image;i.onload=()=>res(i);i.onerror=rej;i.src=url});const max=2200,s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);return c.toDataURL("image/jpeg",.9)}
+$("run").onclick=async()=>{if(!sourceData){showError("請先上傳底圖。");return}hideError();$("run").disabled=true;$("progress").style.display="block";$("status").innerHTML="Gemini <b>GENERATING</b>";try{const r=await fetch("/api/render",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({image:sourceData,mode,style:selected,lighting:$("lighting").value,quality:$("quality").value,userPrompt:$("prompt").value})});const j=await r.json();if(!r.ok)throw new Error(j.error||"渲染失敗");resultData=j.image;$("preview").src=resultData;$("download").disabled=false;$("status").innerHTML="Render <b>COMPLETE</b>"}catch(e){showError(e.message);$("status").innerHTML="Engine <b>ERROR</b>"}finally{$("run").disabled=false;$("progress").style.display="none"}};
+$("download").onclick=()=>{if(!resultData)return;const a=document.createElement("a");a.href=resultData;a.download="VISTA_RENDER_"+Date.now()+".jpg";a.click()};
+$("reset").onclick=()=>{sourceData=resultData="";$("file").value="";$("fileName").textContent="尚未選擇圖片";$("preview").hidden=true;$("preview").removeAttribute("src");$("empty").style.display="block";$("download").disabled=true;hideError();$("status").innerHTML="Engine <b>READY</b>"};
+function showError(s){$("error").textContent=s;$("error").style.display="block"}function hideError(){$("error").style.display="none"}
+</script>
+</body></html>
