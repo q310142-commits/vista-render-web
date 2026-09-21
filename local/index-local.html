@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISTA Local AI Render</title>
+<style>
+:root{color-scheme:dark;--a:#f59e0b;--g:#34d399;--p:#9b5cff}*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 10% 0,#271706 0,transparent 28%),#060606;color:#f5f5f5;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{height:70px;padding:0 22px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12;background:#080808ef;position:sticky;top:0;z-index:10}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#f59e0b,#fde047);color:#111;display:grid;place-items:center;font-weight:1000}
+h1{font-size:18px;margin:0}.sub{font-size:9px;color:var(--a);letter-spacing:.2em;font-weight:900}.health{font-size:10px;border:1px solid #245a48;background:#0b2d22;color:#a7f3d0;border-radius:999px;padding:7px 10px}
+main{max-width:1800px;margin:auto;padding:20px;display:grid;grid-template-columns:390px 1fr;gap:20px}.left{display:flex;flex-direction:column;gap:13px;max-height:calc(100vh - 105px);overflow:auto}
+.card{background:#101113e8;border:1px solid #ffffff12;border-radius:20px;padding:15px}.title{font-size:10px;color:#bec1c8;letter-spacing:.14em;font-weight:900;margin-bottom:10px}
+.upload{display:block;padding:18px;text-align:center;border:1px dashed #705329;border-radius:14px;background:#171006;cursor:pointer}.upload input{display:none}.file{font-size:11px;color:#aaa;margin-top:7px;word-break:break-all}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}button,select,textarea,input[type=range]{font:inherit}.mode button,.chip{border:1px solid #303238;background:#151619;color:#aeb1b8;border-radius:11px;padding:10px;cursor:pointer;font-size:11px;font-weight:850}.mode button.on,.chip.on{border-color:var(--a);background:#37240b;color:#ffd690}
+.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{padding:7px 9px}.select,textarea{width:100%;background:#090a0c;border:1px solid #2b2d31;border-radius:11px;color:#eee;padding:10px;outline:none}textarea{height:62px;resize:vertical}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.small{font-size:10px;color:#858990;line-height:1.5}.denoiseValue{color:#ffd690;font-weight:900}
+.run{border:0;border-radius:18px;padding:17px;background:linear-gradient(135deg,#f59e0b,#facc15);color:#171108;font-size:15px;font-weight:1000;cursor:pointer}.run:disabled{opacity:.45}
+.workspace{min-height:calc(100vh - 110px);display:flex;flex-direction:column;gap:10px}.viewer{flex:1;min-height:620px;background:#030304;border:1px solid #ffffff13;border-radius:28px;display:grid;place-items:center;position:relative;overflow:hidden}.viewer img{max-width:100%;max-height:calc(100vh - 165px);object-fit:contain}.empty{text-align:center;color:#6e7178}.empty b{display:block;color:#a4a7ad;font-size:19px;margin-bottom:7px}.status{position:absolute;left:18px;bottom:18px;background:#060606dc;border:1px solid #ffffff17;border-radius:999px;padding:9px 12px;font-size:10px}.status strong{color:var(--g)}
+.tools{display:flex;justify-content:flex-end;gap:8px}.tool{border:1px solid #303238;background:#141517;color:#ddd;border-radius:11px;padding:8px 12px;cursor:pointer}.error{display:none;background:#3a1017;color:#fecdd3;border:1px solid #7f1d2d;border-radius:12px;padding:10px;font-size:11px}
+.progress{display:none;height:5px;background:#202126;border-radius:99px;overflow:hidden}.progress i{display:block;width:40%;height:100%;background:linear-gradient(90deg,#f59e0b,#fde047);animation:l 1.1s ease-in-out infinite alternate}@keyframes l{from{transform:translateX(-50%)}to{transform:translateX(180%)}}
+@media(max-width:920px){main{grid-template-columns:1fr}.left{max-height:none}.viewer{min-height:55vh}.health{display:none}}
+</style>
+</head><body>
+<header><div class="brand"><div class="logo">V</div><div><h1>VISTA Local AI Render</h1><div class="sub">RTX 5060 · LOCAL · NO API FEE</div></div></div><div id="health" class="health">檢查本機引擎...</div></header>
+<main>
+<section class="left">
+<div class="card"><div class="title">01 · SKETCHUP / D5 / ENSCAPE 底圖</div><label class="upload">點擊上傳底圖<input id="file" type="file" accept="image/jpeg,image/png,image/webp"><div id="fileName" class="file">尚未選擇圖片</div></label><div class="small">RTX 5060 8GB 會自動縮到適合 SDXL 的尺寸，避免爆顯存。</div></div>
+<div class="card"><div class="title">02 · 渲染模式</div><div class="grid mode"><button id="pure" class="on">攝影擬真</button><button id="style">材質風格</button></div></div>
+<div class="card" id="styleCard" style="display:none"><div class="title">03 · 風格</div><div id="styles" class="chips"></div></div>
+<div class="card"><div class="title">04 · 光線</div><select id="lighting" class="select"><option>natural bright daylight, soft realistic bounced light</option><option>soft overcast daylight, gentle contrast, no harsh shadows</option><option>warm golden hour sunlight, long soft shadows</option><option>warm 3000K interior lighting, controlled dark exterior</option></select></div>
+<div class="card"><div class="title">05 · RTX 5060 品質</div><select id="quality" class="select"><option value="standard">穩定模式 1024px（建議）</option><option value="high">細緻模式 1280px（較慢）</option></select></div>
+<div class="card"><div class="title">06 · 結構鎖定 / DENOISE</div><div class="row"><span class="small">低＝更忠於原圖</span><span id="dv" class="denoiseValue">0.28</span></div><input id="denoise" type="range" min="0.18" max="0.45" step="0.01" value="0.28" style="width:100%"><div class="small">室內設計先用 0.24～0.32。太高容易改櫃體與空間。</div></div>
+<div class="card"><div class="title">07 · 額外微調</div><textarea id="prompt" placeholder="例如：木紋更自然、石材降低塑膠感、窗邊光柔和..."></textarea></div>
+<div id="error" class="error"></div><div id="progress" class="progress"><i></i></div><button id="run" class="run">啟動 RTX 本機 AI 算圖</button>
+</section>
+<section class="workspace"><div class="tools"><button id="download" class="tool" disabled>下載結果</button><button id="reset" class="tool">清除</button></div><div class="viewer"><div id="empty" class="empty"><b>LOCAL ENGINE READY</b>上傳圖片開始免費本機算圖</div><img id="preview" hidden><div id="status" class="status">ComfyUI <strong>CHECKING</strong></div></div></section>
+</main>
+<script>
+const $=x=>document.getElementById(x);let mode="pure",style="modern",source="",result="";
+const styles=[["modern","現代"],["cream","奶油"],["wabisabi","侘寂"],["nordic","北歐"],["japandi","Japandi"],["luxury","輕奢"],["zen","禪意"]];
+styles.forEach(([v,n],i)=>{let b=document.createElement("button");b.className="chip"+(i===0?" on":"");b.textContent=n;b.onclick=()=>{style=v;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b))};$("styles").appendChild(b)});
+function setMode(v){mode=v;$("pure").classList.toggle("on",v==="pure");$("style").classList.toggle("on",v==="style");$("styleCard").style.display=v==="style"?"block":"none"}$("pure").onclick=()=>setMode("pure");$("style").onclick=()=>setMode("style");
+$("denoise").oninput=e=>$("dv").textContent=Number(e.target.value).toFixed(2);
+async function health(){try{let j=await (await fetch("/api/health")).json();if(j.ok){$("health").textContent="ComfyUI ONLINE · "+(j.checkpoints?.[0]||"SDXL");$("status").innerHTML="ComfyUI <strong>ONLINE</strong>"}else{$("health").textContent=j.comfyui?"缺少 SDXL 模型":"ComfyUI OFFLINE";$("status").innerHTML="ComfyUI <strong>OFFLINE</strong>"}}catch{$("health").textContent="LOCAL SERVER OFFLINE"}}health();
+$("file").onchange=async e=>{let f=e.target.files[0];if(!f)return;$("fileName").textContent=f.name;source=await compress(f);result="";$("preview").src=source;$("preview").hidden=false;$("empty").style.display="none";$("download").disabled=true};
+async function compress(f){let u=URL.createObjectURL(f),im=await new Promise((r,j)=>{let x=new Image;x.onload=()=>r(x);x.onerror=j;x.src=u});let max=$("quality").value==="high"?1280:1024,s=Math.min(1,max/Math.max(im.width,im.height));let c=document.createElement("canvas");c.width=Math.max(64,Math.round(im.width*s/64)*64);c.height=Math.max(64,Math.round(im.height*s/64)*64);c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);return c.toDataURL("image/jpeg",.92)}
+$("run").onclick=async()=>{if(!source)return err("請先上傳底圖。");hide();$("run").disabled=true;$("progress").style.display="block";$("status").innerHTML="RTX 5060 <strong>GENERATING</strong>";try{let r=await fetch("/api/render",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({image:source,mode,style,lighting:$("lighting").value,quality:$("quality").value,denoise:Number($("denoise").value),userPrompt:$("prompt").value})});let j=await r.json();if(!r.ok)throw new Error(j.error||"算圖失敗");result=j.image;$("preview").src=result;$("download").disabled=false;$("status").innerHTML="LOCAL RENDER <strong>COMPLETE</strong>"}catch(e){err(e.message);$("status").innerHTML="LOCAL ENGINE <strong>ERROR</strong>"}finally{$("run").disabled=false;$("progress").style.display="none"}};
+$("download").onclick=()=>{if(!result)return;let a=document.createElement("a");a.href=result;a.download="VISTA_LOCAL_"+Date.now()+".png";a.click()};$("reset").onclick=()=>{source=result="";$("file").value="";$("fileName").textContent="尚未選擇圖片";$("preview").hidden=true;$("empty").style.display="block";$("download").disabled=true;hide()};
+function err(s){$("error").textContent=s;$("error").style.display="block"}function hide(){$("error").style.display="none"}
+</script></body></html>
